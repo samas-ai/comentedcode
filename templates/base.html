@@ -1,0 +1,102 @@
+{% comment %}
+Arquivo: templates/base.html (ou o nome que você usa para seu template base)
+Este é o template HTML base para todo o projeto "Gestor de Filas".
+Todas as outras páginas (templates) vão estender este aqui, preenchendo os blocos 'title' e 'content'.
+Ele inclui:
+- Configurações básicas de HTML (doctype, lang, meta tags).
+- Links para CSS (Bootstrap, Font Awesome, custom.css).
+- Uma barra de navegação (Navbar) que muda se o usuário está logado ou não.
+- Uma seção para exibir mensagens do Django (messages framework).
+- O bloco principal de conteúdo.
+- Links para JavaScript (Bootstrap Bundle).
+- Duas faixas de gradiente (gradient-band) para um toque visual.
+{% endcomment %}
+
+{% load static %} {# Carrega as tags de template do Django para arquivos estáticos. Vou usar isso para o meu 'custom.css'. #}
+<!doctype html>
+<html lang="pt-br"> {# Define o tipo de documento e o idioma principal da página. #}
+<head>
+    <meta charset="utf-8"> {# Define o conjunto de caracteres para UTF-8, que é o padrão e suporta a maioria dos caracteres. #}
+    <meta name="viewport" content="width=device-width, initial-scale=1"> {# Configura a viewport para responsividade em dispositivos móveis. #}
+    
+    {% comment %} Links para folhas de estilo (CSS) {% endcomment %}
+    {# Bootstrap 5.3.3 via CDN para estilização rápida e responsiva. #}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    {# Font Awesome 6.5.2 via CDN para ícones. #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    {# Meu arquivo CSS customizado, que fica na pasta 'static/css/'. #}
+    <link rel="stylesheet" href="{% static 'css/custom.css' %}"> 
+    
+    {# Bloco de título. As páginas filhas podem sobrescrever este bloco para definir seus próprios títulos. #}
+    <title>{% block title %}Gestor de Filas{% endblock %}</title>
+</head>
+<body>
+
+    {# Uma faixa de gradiente no topo da página, estilizada no custom.css provavelmente. #}
+    <div class="gradient-band top"></div>
+
+    {% comment %} Barra de Navegação (Navbar) {% endcomment %}
+    <nav class="navbar navbar-expand-lg navbar-light bg-light"> {# Navbar do Bootstrap, expansível em telas grandes, tema claro. #}
+        <div class="container"> {# Container para alinhar o conteúdo da navbar. #}
+            <a class="navbar-brand" href="/">Gestor de Filas</a> {# O logo/nome do site, linka para a página inicial. #}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span> {# Botão "hambúrguer" para navegação em telas pequenas. #}
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav"> {# Conteúdo da navbar que será colapsado em telas pequenas. #}
+                <ul class="navbar-nav ms-auto"> {# Lista de itens de navegação, alinhados à direita (ms-auto). #}
+                    {% if user.is_authenticated %} {# Verifica se o usuário está logado. #}
+                        <li class="nav-item">
+                            <span class="navbar-text me-2"> {# Texto de saudação para o usuário logado. 'me-2' para margem à direita. #}
+                                Olá, {{ user.username }}!
+                            </span>
+                        </li>
+                        <li class="nav-item">
+                            {# Botão de Sair, usa a URL 'logout' definida no urls.py. #}
+                            <a class="btn btn-outline-danger" href="{% url 'logout' %}">Sair</a>
+                        </li>
+                    {% else %} {# Se o usuário não estiver logado. #}
+                        <li class="nav-item">
+                            {# Botão de Entrar, usa a URL 'login' definida no urls.py. #}
+                            <a class="btn btn-primary" href="{% url 'login' %}">Entrar</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+    
+    {% comment %} Seção para exibir mensagens do Django (messages framework). {% endcomment %}
+    {% if messages %}
+        <div class="container mt-3"> {# Container para as mensagens, com margem no topo. #}
+            {% for message in messages %} {# Loop para cada mensagem na lista de mensagens. #}
+                {# Cria um alerta Bootstrap. A classe do alerta (success, error, warning, info) é pega de 'message.tags'. #}
+                {# 'alert-dismissible fade show' para tornar o alerta fechável com animação. #}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }} {# O texto da mensagem. #}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> {# Botão para fechar o alerta. #}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# Wrapper para o conteúdo principal. Pode ser usado para aplicar estilos globais ao corpo da página. #}
+    <div class="main-content-wrapper">
+        {% block content %}
+        {# Este é o bloco que será preenchido pelo conteúdo específico de cada página filha. #}
+        {% endblock %}
+    </div>
+    
+    {# Uma faixa de gradiente na parte inferior da página. #}
+    <div class="gradient-band bottom"></div>
+
+    {% comment %} Scripts JavaScript {% endcomment %}
+    {# Bootstrap Bundle (JS que inclui Popper.js) via CDN. Colocado no final do body para melhor performance de carregamento da página. #}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    {% comment %}
+    Poderia adicionar um bloco para scripts JavaScript específicos da página aqui, se necessário:
+    {% block extra_js %}{% endblock %}
+    Mas para este projeto, o Bootstrap bundle deve ser suficiente por enquanto.
+    {% endcomment %}
+</body>
+</html>

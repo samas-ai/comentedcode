@@ -1,0 +1,152 @@
+{% comment %}
+Arquivo: templates/core/atendente_painel.html (ou o caminho que você configurou)
+Este é o painel principal para o usuário do tipo "Atendente".
+Ele exibe uma lista de médicos para filtrar a fila e a própria fila de pacientes aguardando.
+A view correspondente (AtendentePainelView) passa as variáveis de contexto:
+- medicos: lista de todos os médicos cadastrados.
+- medico_selecionado: o médico cuja fila está sendo exibida (ou None para fila geral).
+- fila_list: a lista de pacientes na fila (já filtrada pela view se um médico foi selecionado).
+- page_obj, is_paginated: para a lógica de paginação da lista da fila.
+{% endcomment %}
+
+{% extends "base.html" %} {# Herda do nosso template base padrão. #}
+
+{% block title %}Painel de Atendimento{% endblock %} {# Título da página. #}
+
+{% block content %}
+<div class="container mt-4"> {# Container principal com margem no topo. #}
+    <div class="row"> {# Linha do Bootstrap para criar o layout de colunas. #}
+
+        {% comment %} Coluna da Sidebar (Barra Lateral) - Filtro de Médicos {% endcomment %}
+        <div class="col-md-3 atendente-sidebar"> {# Ocupa 3 de 12 colunas em telas médias ou maiores. 'atendente-sidebar' seria uma classe customizada se eu quisesse estilos específicos. #}
+            <div class="card"> {# Card para agrupar a lista de médicos. #}
+                <div class="card-header fw-bold"> {# Cabeçalho do card, com texto em negrito. #}
+                    EQUIPE MÉDICA
+                </div>
+                <ul class="list-group list-group-flush"> {# Lista Bootstrap. 'flush' remove bordas laterais. #}
+                    {% comment %} Item para "Fila Geral" - mostra todos os pacientes aguardando, sem filtro de médico. {% endcomment %}
+                    <li class="list-group-item {% if not medico_selecionado %}active{% endif %}"> {# Adiciona a classe 'active' se nenhum médico específico estiver selecionado (ou seja, estamos na Fila Geral). #}
+                        <a href="{% url 'painel_atendente' %}" class="text-decoration-none"> {# Link para a URL 'painel_atendente' sem parâmetros (mostra a fila geral). 'text-decoration-none' para remover sublinhado. #}
+                            {# Uso um placeholder para o avatar. 'T' de "Todos" ou "Total". #}
+                            <img src="https://via.placeholder.com/30/CCCCCC/FFFFFF?text=T" class="rounded-circle me-2" alt="Avatar">
+                            <strong>Fila Geral</strong>
+                        </a>
+                    </li>
+
+                    {% comment %} Loop para listar cada médico cadastrado. {% endcomment %}
+                    {% for medico in medicos %}
+                        <li class="list-group-item {% if medico_selecionado == medico %}active{% endif %}"> {# Adiciona 'active' se este médico for o 'medico_selecionado' no contexto. #}
+                            {# Link para a mesma view 'painel_atendente', mas passando 'medico_id' como query parameter para filtrar a fila. #}
+                            <a href="{% url 'painel_atendente' %}?medico_id={{ medico.pk }}" 
+                               class="text-decoration-none">
+                                {% comment %}
+                                Placeholder para o avatar do médico.
+                                Tento pegar a primeira letra do nome completo (medico.user.get_full_name.0).
+                                Se não tiver nome completo, pego a primeira letra do username (medico.user.username.0).
+                                Uso 'upper' para deixar a letra maiúscula.
+                                {% endcomment %}
+                                <img src="https://via.placeholder.com/30/CCCCCC/FFFFFF?text={{ medico.user.get_full_name.0|default:medico.user.username.0|upper }}" class="rounded-circle me-2" alt="Avatar">
+                                {{ medico.user.get_full_name|default:medico.user.username }} {# Mostra o nome completo do médico, ou o username se não houver nome completo. #}
+                            </a>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item">Nenhum médico cadastrado.</li> {# Mensagem se não houver médicos. #}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        {% comment %} Coluna Principal - Lista de Pacientes na Fila {% endcomment %}
+        <div class="col-md-9 atendente-main-panel"> {# Ocupa 9 de 12 colunas em telas médias ou maiores. #}
+            <div class="card">
+                <div class="card-header fw-bold">
+                    Painel de Atendimento
+                    {% if medico_selecionado %} {# Se um médico foi selecionado, mostra o nome dele no título do painel. #}
+                        - Dr(a). {{ medico_selecionado.user.get_full_name|default:medico_selecionado.user.username }}
+                    {% else %} {# Senão, indica que é a Fila Geral. #}
+                        - Fila Geral (Aguardando)
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    
+                    <ul class="list-group mb-4"> {# Lista para os pacientes na fila. 'mb-4' para margem inferior. #}
+                        {% for item_fila in fila_list %} {# Loop nos itens da fila passados pela view. #}
+                            <li class="list-group-item d-flex justify-content-between align-items-center"> {# Item da lista com flexbox para alinhar o nome e o botão. #}
+                                <span>
+                                    {% comment %}
+                                    Numeração do paciente na fila.
+                                    'forloop.counter0' é o índice do loop (começa em 0).
+                                    'page_obj.start_index' é o número do primeiro item na página atual (considerando a paginação).
+                                    Somando os dois, tenho a numeração correta contínua através das páginas.
+                                    {% endcomment %}
+                                    <span class="fw-bold">{{ forloop.counter0|add:page_obj.start_index }}</span>. {{ item_fila.paciente.nome_completo }} 
+                                    <small class="text-muted"> (Chegou: {{ item_fila.data_hora_chegada|time:"H:i" }})</small> {# Mostra a hora de chegada formatada. #}
+                                </span>
+                                {% comment %}
+                                Botão "Chamar" é um pequeno formulário que faz um POST para a URL 'chamar_paciente'
+                                passando o PK do item da fila. Isso vai acionar a ChamarPacienteView.
+                                {% endcomment %}
+                                <form action="{% url 'chamar_paciente' item_fila.pk %}" method="post" style="display: inline;">
+                                    {% csrf_token %} {# Proteção CSRF obrigatória para forms POST. #}
+                                    <button type="submit" class="btn btn-sm btn-warning">Chamar</button> {# Botão pequeno (btn-sm) e amarelo (btn-warning). #}
+                                </form>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item text-center">A fila está vazia!</li> {# Mensagem se a fila estiver vazia. #}
+                        {% endfor %}
+                    </ul>
+
+                    <div class="text-center mb-4"> {# Botão para adicionar um novo paciente ou um existente à fila. #}
+                        {# Este link provavelmente leva para a PacienteListView, onde o atendente pode buscar um paciente ou cadastrar um novo, para depois adicionar à fila. #}
+                        <a href="{% url 'paciente_list' %}" class="btn btn-success">Adicionar Paciente</a> 
+                    </div>
+                    
+                    {% comment %} Seção de Paginação - aparece apenas se 'is_paginated' for True (passado pela view ListView). {% endcomment %}
+                    {% if is_paginated %}
+                        <nav aria-label="Paginação da Fila">
+                            <ul class="pagination justify-content-center"> {# Componente de paginação Bootstrap, centralizado. #}
+                                
+                                {% comment %} Botão "Anterior" {% endcomment %}
+                                {% if page_obj.has_previous %} {# Se existe uma página anterior. #}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Anterior"> {# Link para a página anterior. O '?page=' mantém outros query params se houver. #}
+                                            <span aria-hidden="true">&laquo;</span>
+                                        </a>
+                                    </li>
+                                {% else %} {# Senão, botão desabilitado. #}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">&laquo;</span>
+                                    </li>
+                                {% endif %}
+
+                                {% comment %} Loop para os números das páginas. {% endcomment %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %} {# Se for a página atual, marca como 'active'. #}
+                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% else %} {# Senão, link normal para a página. #}
+                                        <li class="page-item"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+                                    {% endif %}
+                                {% endfor %}
+
+                                {% comment %} Botão "Próximo" {% endcomment %}
+                                {% if page_obj.has_next %} {# Se existe uma próxima página. #}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Próximo">
+                                            <span aria-hidden="true">&raquo;</span>
+                                        </a>
+                                    </li>
+                                {% else %} {# Senão, botão desabilitado. #}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">&raquo;</span>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+
+                </div> {# Fim card-body #}
+            </div> {# Fim card #}
+        </div> {# Fim col-md-9 #}
+    </div> {# Fim row #}
+</div> {# Fim container #}
+{% endblock %}

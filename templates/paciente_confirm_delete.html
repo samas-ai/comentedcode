@@ -1,0 +1,55 @@
+{% comment %}
+Arquivo: templates/core/paciente_confirm_delete.html (ou nome similar)
+Este template é usado pela PacienteDeleteView para exibir uma página de confirmação
+antes de deletar permanentemente um objeto Paciente.
+Ele espera as seguintes variáveis de contexto da view:
+- object: A instância do Paciente que está prestes a ser excluída (padrão do DeleteView).
+- page_title: Um título para a página e o card (geralmente algo como "Confirmar Exclusão: Nome do Paciente").
+{% endcomment %}
+
+{% extends "base.html" %} {# Herda a estrutura do nosso template base. #}
+
+{% block title %}{{ page_title|default:"Confirmar Exclusão" }}{% endblock %} {# Título da página, usando o 'page_title' da view ou um valor padrão. #}
+
+{% block content %}
+<div class="container mt-5"> {# Container Bootstrap com margem no topo. #}
+    <div class="row justify-content-center"> {# Linha para centralizar o conteúdo. #}
+        <div class="col-md-8"> {# Coluna limitando a largura do conteúdo em telas maiores. #}
+            {% comment %}
+            Card com borda e cabeçalho vermelhos (border-danger, bg-danger)
+            para dar um forte aviso visual de que esta é uma ação perigosa/destrutiva.
+            {% endcomment %}
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white"> {# Cabeçalho do card vermelho com texto branco. #}
+                    <h3>{{ page_title|default:"Confirmar Exclusão de Paciente" }}</h3> {# Título no cabeçalho. #}
+                </div>
+                <div class="card-body">
+                    <p class="lead">Você tem certeza que deseja excluir permanentemente o paciente:</p>
+                    <h4><strong>{{ object.nome_completo }}</strong></h4> {# Mostra o nome completo do paciente para confirmação. 'object' é a instância do paciente. #}
+                    <p class="text-muted">
+                        (Nº SUS: {{ object.carteira_sus }}) {# Informação adicional para ajudar na identificação. #}
+                    </p>
+                    
+                    <hr> {# Linha horizontal para separar. #}
+                    <p class="text-danger fw-bold">Atenção: Esta ação não poderá ser desfeita!</p> {# Aviso importante em vermelho e negrito. #}
+
+                    {% comment %}
+                    O formulário em si é bem simples. Ele só precisa do CSRF token.
+                    A lógica de exclusão é toda tratada pela DeleteView do Django quando este formulário é submetido via POST.
+                    {% endcomment %}
+                    <form method="post">
+                        {% csrf_token %} {# Proteção CSRF, sempre! #}
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4"> {# Container para os botões, alinhados à direita. #}
+                            {# Botão para Cancelar a exclusão e voltar para a lista de pacientes. #}
+                            <a href="{% url 'paciente_list' %}" class="btn btn-secondary me-md-2">Cancelar</a>
+                            {# Botão de Submit que, ao ser clicado, envia o POST para a DeleteView e efetiva a exclusão. #}
+                            <button type="submit" class="btn btn-danger">Sim, Excluir Permanentemente</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,170 @@
+{% comment %}
+Arquivo: templates/core/home.html (ou similar)
+Esta é a página inicial do sistema. O conteúdo exibido varia de acordo com o tipo de usuário logado.
+- Atendentes veem links diretos para suas principais funcionalidades.
+- Médicos veem um resumo da sua fila de atendimento (que se atualiza via JavaScript) e uma ação para o próximo paciente.
+- Outros usuários (se houver) veem uma mensagem genérica.
+
+A view HomeView é responsável por passar as variáveis de contexto necessárias:
+- mensagem_boas_vindas, sub_mensagem: Textos dinâmicos de saudação.
+- is_atendente, is_medico: Booleans que indicam o grupo do usuário.
+- Para médicos: pacientes_em_atendimento_count, pacientes_aguardando_count, proximo_atendimento_obj, acao_proximo_atendimento.
+{% endcomment %}
+
+{% extends "base.html" %} {# Herda do nosso template base. #}
+
+{% block title %}Página Inicial - Gestor de Filas{% endblock %} {# Título da página. #}
+
+{% block content %}
+<div class="container mt-5"> {# Container principal com margem no topo. #}
+    <div class="text-center"> {# Centraliza o texto de boas-vindas. #}
+        <h1 class="display-4">{{ mensagem_boas_vindas }}</h1> {# Mensagem principal, vinda da view. #}
+        <p class="lead">{{ sub_mensagem }}</p> {# Sub-mensagem, também da view. #}
+        <hr class="my-4"> {# Linha horizontal para separar. #}
+    </div>
+
+    {% if is_atendente %}
+        {% comment %} Conteúdo específico para Atendentes {% endcomment %}
+        <div class="row justify-content-center mt-4"> {# Linha para os botões de ação, centralizados. #}
+            <div class="col-md-auto mb-2"> {# Coluna responsiva para o botão. 'mb-2' para margem inferior em telas pequenas. #}
+                <a href="{% url 'painel_atendente' %}" class="btn btn-primary btn-lg">Ver Fila Atual</a> {# Link para o painel do atendente. #}
+            </div>
+            <div class="col-md-auto mb-2">
+                <a href="{% url 'paciente_list' %}" class="btn btn-success btn-lg">Gerenciar Pacientes</a> {# Link para a lista de pacientes. #}
+            </div>
+        </div>
+    {% elif is_medico %}
+        {% comment %} Conteúdo específico para Médicos {% endcomment %}
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-8"> {# Coluna para o card de status do médico. #}
+                <div class="card">
+                    <div class="card-body text-center" id="medico-status-container"> {# 'id' para ser alvo do JavaScript. #}
+                        {% comment %}
+                        O resumo da fila é carregado inicialmente pela view Django,
+                        e depois atualizado dinamicamente pelo JavaScript via API.
+                        No entanto, o JS atual abaixo parece focar mais na área de ação.
+                        A atualização do 'medico-queue-summary' não está explícita no JS atual,
+                        mas a estrutura está aqui.
+                        {% endcomment %}
+                        <p id="medico-queue-summary">
+                            Você tem <strong>{{ pacientes_em_atendimento_count }}</strong> paciente(s) em atendimento e 
+                            <strong>{{ pacientes_aguardando_count }}</strong> paciente(s) aguardando na sua fila.
+                        </p>
+                        <div id="medico-next-action-area"> {# Área que o JavaScript vai atualizar com a próxima ação. #}
+                            {% if proximo_atendimento_obj %} {# Renderização inicial baseada no contexto da view. #}
+                                <a href="{% url 'atendimento_detalhe' pk=proximo_atendimento_obj.pk %}" class="btn btn-info btn-lg mt-3" id="medico-action-button">
+                                    <span id="medico-action-text">{{ acao_proximo_atendimento }}</span>: <br> 
+                                    <span id="medico-patient-name">{{ proximo_atendimento_obj.paciente.nome_completo }}</span>
+                                </a>
+                            {% elif pacientes_em_atendimento_count == 0 and pacientes_aguardando_count == 0 %}
+                                <p class="mt-3" id="medico-no-patients-message">Sua fila está vazia no momento. Bom descanso!</p>
+                            {% else %}
+                                <p class="mt-3" id="medico-generic-message">Verifique o painel de atendimentos para mais detalhes.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        {% comment %} Conteúdo para outros tipos de usuários logados (ex: admin sem perfil de atendente/médico). {% endcomment %}
+        <div class="text-center mt-4">
+            <p>Utilize o menu de administração para gerenciar o sistema.</p>
+        </div>
+    {% endif %}
+</div>
+
+{% if is_medico %}
+{% comment %}
+Bloco de JavaScript que só é incluído se o usuário for um médico.
+Este script faz polling (consultas periódicas) a uma API para buscar
+o status atual da fila do médico e atualiza a área 'medico-next-action-area'
+dinamicamente, sem precisar recarregar a página inteira.
+{% endcomment %}
+<script>
+    // Pego as referências dos elementos HTML que vou manipular.
+    const medicoStatusContainer = document.getElementById('medico-status-container');
+    const medicoQueueSummary = document.getElementById('medico-queue-summary'); // Embora pego, não estou atualizando ele no JS abaixo.
+    const medicoNextActionArea = document.getElementById('medico-next-action-area');
+    const apiUrl = "{% url 'api_medico_status_fila' %}"; // URL da API, gerada dinamicamente pelo Django.
+
+    // Função para buscar os dados da API.
+    function fetchMedicoStatus() {
+        console.log("Buscando status da fila do médico..."); // Log para debug.
+        fetch(apiUrl) // Faz a requisição GET para a API.
+            .then(response => {
+                if (!response.ok) { // Se a resposta não for OK (ex: 404, 500).
+                    throw new Error('Erro na rede ou resposta não OK da API');
+                }
+                return response.json(); // Converte a resposta para JSON.
+            })
+            .then(data => { // Se a conversão para JSON for bem-sucedida.
+                console.log("Dados recebidos da API:", data); // Log dos dados.
+                updateMedicoHomePage(data); // Chama a função para atualizar a página.
+            })
+            .catch(error => { // Se ocorrer qualquer erro na requisição ou processamento.
+                console.error('Erro ao buscar status da fila do médico:', error);
+                // Poderia adicionar uma mensagem de erro mais visível para o usuário aqui.
+            });
+    }
+
+    // Função para atualizar o HTML da página com os dados recebidos da API.
+    function updateMedicoHomePage(data) {
+        // Valores padrão para o resumo da fila e área de ação (caso não haja dados ou haja erro).
+        // OBS: A linha abaixo inicializa summaryHtml mas não é usada para atualizar o medicoQueueSummary diretamente.
+        // Para atualizar o resumo da fila, eu precisaria de um:
+        // if(medicoQueueSummary) medicoQueueSummary.innerHTML = summaryHtml;
+        // A lógica atual foca na 'actionHtml'.
+        let summaryHtml = `Você tem <strong>0</strong> paciente(s) em atendimento e 
+                           <strong>0</strong> paciente(s) aguardando na sua fila.`; 
+        let actionHtml = `<p class="mt-3" id="medico-no-patients-message">Sua fila está vazia no momento. Bom descanso!</p>`; 
+
+        if (data.status_geral === 'erro') { // Se a API retornar um erro.
+            summaryHtml = `<p class="text-danger">Erro ao carregar dados da fila: ${data.mensagem || 'Tente novamente mais tarde.'}</p>`;
+            actionHtml = ""; // Limpa a área de ação.
+            // Aqui também, para mostrar o erro no summary, precisaria:
+            // if(medicoQueueSummary) medicoQueueSummary.innerHTML = summaryHtml;
+        } else {
+            // Se a API retornou dados válidos.
+            // Atualiza o resumo da fila (esta parte precisaria ser implementada se quisesse atualizar o contador de pacientes).
+            // summaryHtml = `Você tem <strong>${data.em_atendimento_count || 0}</strong> paciente(s) em atendimento e 
+            //                <strong>${data.aguardando_count || 0}</strong> paciente(s) aguardando na sua fila.`;
+
+            // Lógica para montar o HTML da próxima ação.
+            if (data.status_geral === 'em_atendimento' || data.status_geral === 'aguardando_proximo') {
+                const actionText = data.status_geral === 'em_atendimento' ? "Continuar Atendimento" : "Iniciar Próximo Atendimento";
+                // A URL do atendimento é construída aqui. É importante que o padrão '/atendimento/<pk>/' esteja correto.
+                const atendimentoUrl = `/atendimento/${data.atendimento_id}/`; 
+
+                actionHtml = `
+                    <a href="${atendimentoUrl}" class="btn btn-info btn-lg mt-3" id="medico-action-button">
+                        <span id="medico-action-text">${actionText}</span>: <br> 
+                        <span id="medico-patient-name">${data.paciente_nome}</span>
+                    </a>
+                `;
+            } else if (data.status_geral === 'sem_pacientes_na_fila') {
+                actionHtml = `<p class="mt-3" id="medico-no-patients-message">Sua fila está vazia no momento. Bom descanso!</p>`;
+            }
+            // Se houver outros status_geral, a actionHtml padrão de "fila vazia" será usada,
+            // ou eu poderia adicionar mais 'else if' para tratá-los.
+        }
+
+        // Atualiza o conteúdo da área de ação, se o elemento existir.
+        if(medicoNextActionArea) {
+            medicoNextActionArea.innerHTML = actionHtml;
+        }
+        // Para atualizar o resumo:
+        // if(medicoQueueSummary && data.status_geral !== 'erro') { // Evita sobrescrever a mensagem de erro de 'summaryHtml'
+        //     medicoQueueSummary.innerHTML = summaryHtmlComContadoresReais; // Usando uma var com os contadores atuais da API
+        // }
+    }
+
+    // Verifica se o container do status do médico existe na página (ou seja, se o usuário é médico).
+    if (medicoStatusContainer) { 
+        fetchMedicoStatus(); // Chama a função uma vez assim que a página carrega.
+        setInterval(fetchMedicoStatus, 15000); // Configura para chamar a função a cada 15 segundos (15000 ms).
+    }
+</script>
+{% endif %}
+
+{% endblock %}

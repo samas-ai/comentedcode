@@ -1,0 +1,63 @@
+{% comment %}
+Arquivo: AlgumLugar/templates/registration/login.html (ou similar, dependendo da estrutura do projeto)
+Este é o template para a página de login. Ele herda de um 'base.html' que deve conter
+a estrutura principal da página (como navbar, footer, includes de CSS/JS globais).
+{% endcomment %}
+
+{% extends "base.html" %} {# Indico que este template herda do 'base.html'. Todo o conteúdo dele será inserido nos blocos definidos no base.html. #}
+{% load static %} {# Carrega as tags de template para arquivos estáticos. Mesmo que não use diretamente aqui, é uma boa prática ter se o base.html ou outros blocos usarem. #}
+
+{% block title %}Entrar - Gestor de Filas{% endblock %} {# Define o título da página, que provavelmente será usado na tag <title> do base.html. #}
+
+{% block content %} {# Bloco principal onde o conteúdo específico desta página de login será renderizado. #}
+<div class="login-page-wrapper"> {# Um wrapper geral para a página de login, bom para aplicar estilos específicos da página. #}
+
+    <div class="login-title-header"> {# Um cabeçalho simples para o nome da aplicação. #}
+        Queue Organizer {# Nome do meu sistema, bem direto. #}
+    </div>
+
+    {# Este é o card principal que contém o formulário de login. #}
+    {# Uso classes do Bootstrap para estilização: card, shadow-sm. #}
+    {# 'max-width: 450px' e 'width: 100%' tornam o card responsivo e com uma largura máxima agradável em telas maiores. #}
+    <div class="card shadow-sm" id="login-card" style="max-width: 450px; width: 100%;"> 
+        <div class="card-header text-center bg-transparent pb-0 border-0"> {# Cabeçalho do card. bg-transparent e border-0 para um visual mais limpo. #}
+            <h3 class="mb-3">ENTRAR</h3> {# Título do formulário. mb-3 para uma margem inferior. #}
+        </div>
+        <div class="card-body"> {# Corpo do card, onde o formulário e as mensagens de erro vão. #}
+            
+            {% if form.errors %} {# Verifico se o formulário Django (passado pela view) tem erros. #}
+                {# Se houver erros (geralmente, erro de credenciais inválidas), exibo um alerta. #}
+                <div class="alert alert-danger py-2"> {# Bootstrap alert para erros. py-2 para padding vertical. #}
+                    Usuário ou senha incorretos. Tente novamente. {# Mensagem genérica, não especifico qual campo está errado por segurança. #}
+                </div>
+            {% endif %}
+
+            <form method="post"> {# O formulário de login. method="post" é crucial para enviar dados de forma segura. #}
+                {% csrf_token %} {# Tag de proteção contra Cross-Site Request Forgery. ESSENCIAL no Django. #}
+                
+                <div class="mb-3"> {# Agrupamento para o campo de username + label (Bootstrap: margin-bottom 3). #}
+                    <label for="id_username" class="form-label">LOGIN:</label> {# Label para o campo username. 'for' deve corresponder ao 'id' do input. #}
+                    {# O Django por padrão gera os IDs dos campos do formulário como 'id_nome_do_campo'. #}
+                    <input type="text" name="username" class="form-control form-control-lg" id="id_username" required> {# Campo de texto para o username. 'form-control' e 'form-control-lg' são classes Bootstrap para estilizar o input. 'required' para validação HTML5 básica. #}
+                </div>
+                
+                <div class="mb-3"> {# Agrupamento para o campo de senha + label. #}
+                    <label for="id_password" class="form-label">SENHA:</label> {# Label para o campo password. #}
+                    <input type="password" name="password" class="form-control form-control-lg" id="id_password" required> {# Campo de senha. type="password" mascara os caracteres. #}
+                </div>
+                
+                {# d-grid e gap-2 são classes Bootstrap para criar um botão que ocupa a largura total do container (grid) com um espaçamento. #}
+                {# mt-4 para uma margem superior antes do botão. #}
+                <div class="d-grid gap-2 mt-4"> 
+                    <button type="submit" class="btn btn-primary btn-lg">Entrar</button> {# Botão de submit. btn-primary para a cor azul padrão do Bootstrap, btn-lg para um botão maior. #}
+                </div>
+            </form>
+        </div>
+        <div class="card-footer text-center bg-transparent border-0 pt-2"> {# Rodapé do card, também com estilo limpo. pt-2 para padding superior. #}
+            {# Link para a funcionalidade de redefinição de senha. #}
+            {# Uso a tag 'url' do Django para gerar o link dinamicamente com base no nome da URL pattern definida em urls.py. #}
+            <a href="{% url 'password_reset' %}" class="text-muted">ESQUECI MINHA SENHA</a> {# text-muted para um visual mais sutil. #}
+        </div>
+    </div>
+</div>
+{% endblock %}

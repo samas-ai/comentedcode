@@ -1,0 +1,72 @@
+{% comment %}
+Arquivo: templates/core/paciente_form.html (ou nome similar)
+Este template é um formulário genérico para criar ou editar um Paciente.
+É utilizado por PacienteCreateView e PacienteUpdateView.
+A view deve passar:
+- form: A instância do ModelForm de Paciente.
+- form_title (idealmente): Um título dinâmico para o formulário (ex: "Cadastrar Novo Paciente" ou "Editar Paciente: [Nome]").
+  (No snippet atual, o título do card está fixo, mas o block title pode ser dinâmico se a view passar 'form_title' e o
+   bloco for {% block title %}{{ form_title }}{% endblock %}).
+{% endcomment %}
+
+{% extends "base.html" %} {# Herda do nosso template base principal. #}
+{% load widget_tweaks %} {# Carrega a biblioteca django-widget-tweaks para usar o {% render_field %}. #}
+
+{% block title %}Cadastrar Novo Paciente{% endblock %} {# Define o título da aba do navegador. Poderia ser dinâmico com {{ form_title }} se a view passasse. #}
+
+{% block content %}
+<div class="container mt-5"> {# Container Bootstrap com margem no topo. #}
+    <div class="row justify-content-center"> {# Linha para centralizar o conteúdo do formulário. #}
+        <div class="col-md-8"> {# Coluna que limita a largura do formulário em telas maiores. #}
+            <div class="card"> {# Card Bootstrap para agrupar o formulário. #}
+                <div class="card-header">
+                    {# O título aqui está fixo. Numa versão mais flexível deste form, eu usaria {{ form_title }}. #}
+                    <h3>Cadastrar Novo Paciente</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post"> {# Formulário enviado via método POST. #}
+                        {% csrf_token %} {# Proteção CSRF, essencial para segurança. #}
+
+                        {% comment %}
+                        Loop para renderizar cada campo ('field') do formulário ('form')
+                        que foi passado pela view Django. Isso torna o template reutilizável.
+                        {% endcomment %}
+                        {% for field in form %}
+                            <div class="mb-3"> {# Div para agrupar label, input, erros e texto de ajuda de cada campo. 'mb-3' para margem inferior. #}
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label> {# Label do campo. #}
+
+                                {% comment %}
+                                Usando render_field do widget_tweaks para renderizar o campo do formulário.
+                                A classe 'form-control' do Bootstrap é adicionada para estilização.
+                                Se algum campo for um <textarea>, o atributo 'rows' poderia ser adicionado aqui
+                                (ex: {% render_field field class+="form-control" rows="3" %}) para controlar a altura.
+                                Como não especifiquei 'rows' aqui, ele usará a altura padrão do navegador ou do widget.
+                                {% endcomment %}
+                                {% render_field field class+="form-control" %}
+
+                                {% if field.errors %} {# Se houver erros de validação para este campo. #}
+                                    <div class="alert alert-danger mt-1 p-1"> {# Pequeno alerta Bootstrap para os erros. #}
+                                        {{ field.errors|striptags }} {# Mostra os erros, removendo tags HTML. #}
+                                    </div>
+                                {% endif %}
+
+                                {% if field.help_text %} {# Se o campo tiver um texto de ajuda definido no Form/Model. #}
+                                    <small class="form-text text-muted">{{ field.help_text|safe }}</small> {# Mostra o texto de ajuda. #}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end"> {# Container para os botões, alinhados à direita em telas maiores. #}
+                            {# Botão para Cancelar. Atualmente, ele leva para o painel do atendente. #}
+                            {# Se este formulário fosse usado para edição, o link de "Cancelar" poderia ser dinâmico,
+                            talvez voltando para a lista de pacientes ou para a página anterior. #}
+                            <a href="{% url 'painel_atendente' %}" class="btn btn-secondary me-md-2">Cancelar</a>
+                            <button type="submit" class="btn btn-success">Salvar Paciente</button> {# Botão para submeter o formulário. #}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

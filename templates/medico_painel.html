@@ -1,0 +1,191 @@
+{% comment %}
+Arquivo: templates/core/medico_painel.html (ou similar, ex: atendimento_detalhe.html)
+Esta é a tela principal para o médico durante um atendimento.
+Ela exibe:
+- Uma barra lateral com a fila de próximos pacientes do médico.
+- Informações cadastrais e histórico clínico do paciente em atendimento.
+- Um formulário para o médico registrar a evolução da consulta, conduta adotada e solicitar exames.
+- Botões para salvar as notas/exames e para finalizar o atendimento.
+
+Contexto esperado da view (AtendimentoDetailView):
+- atendimento: O objeto FilaAtendimento atual.
+- paciente: O objeto Paciente associado ao atendimento (geralmente atendimento.paciente).
+- fila_do_medico: Lista de outros pacientes na fila deste médico.
+- evolucao_consulta_salva, conduta_adotada_salva: Textos previamente salvos para as notas.
+- exames_disponiveis: Lista de nomes de exames para os checkboxes.
+- selecionados_checkbox_salvos: Lista de exames previamente selecionados.
+- outro_digitado_salvo: Texto do exame "outro" previamente salvo.
+{% endcomment %}
+
+{% extends "base.html" %} {# Herda do template base. #}
+{% load widget_tweaks %} {# Carregado por precaução, caso eu decida usar render_field para algum campo no futuro. Para textareas simples, não é estritamente necessário. #}
+
+{% block title %}Atendimento: {{ atendimento.paciente.nome_completo }}{% endblock %} {# Título dinâmico com o nome do paciente. #}
+
+{% block content %}
+<div class="container mt-4"> {# Container principal com margem no topo. #}
+    <div class="row"> {# Layout de linha para as colunas. #}
+        
+        {% comment %} Coluna da Sidebar: Fila do Médico {% endcomment %}
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header fw-bold">
+                    FILA A SEGUIR
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% if fila_do_medico %} {# Verifica se a lista da fila do médico foi passada e não é None. #}
+                        {% for item_fila_sidebar in fila_do_medico %}
+                            <li class="list-group-item 
+                                {% if item_fila_sidebar == atendimento %}active{% endif %} 
+                                {% if item_fila_sidebar.status == 'EM_ATENDIMENTO' %}list-group-item-warning{% endif %}">
+                                {#
+                                  - 'active' se for o atendimento atual que está sendo visualizado no painel principal.
+                                  - 'list-group-item-warning' (cor amarela) se o status for 'EM_ATENDIMENTO', para destacar.
+                                #}
+                                <a href="{% url 'atendimento_detalhe' pk=item_fila_sidebar.pk %}" 
+                                   class="text-decoration-none {% if item_fila_sidebar == atendimento %}text-white{% else %}text-dark{% endif %}">
+                                    {# Link para o detalhe do atendimento daquele item da fila. Muda a cor do texto se estiver ativo. #}
+                                    {{ item_fila_sidebar.paciente.nome_completo }}
+                                    <small class="d-block">
+                                        ({{ item_fila_sidebar.get_status_display }}) {# Mostra o status "human-readable" do item na fila. #}
+                                    </small>
+                                </a>
+                            </li>
+                        {% empty %}
+                            <li class="list-group-item">Sua fila está vazia.</li> {# Se a lista 'fila_do_medico' estiver vazia. #}
+                        {% endfor %}
+                    {% else %}
+                        <li class="list-group-item">Sua fila não pôde ser carregada.</li> {# Se 'fila_do_medico' for None ou não existir. #}
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        {% comment %} Coluna Principal: Detalhes do Atendimento e Formulários {% endcomment %}
+        <div class="col-md-9">
+            <h3 class="mb-4">Atendimento Paciente: {{ paciente.nome_completo }} 
+                <small class="text-muted fs-6">(Status do Atendimento: {{ atendimento.get_status_display }})</small> {# Nome do paciente e status atual do atendimento. #}
+            </h3>
+
+            <div class="mb-3"> {# Botão para editar informações clínicas base do paciente. #}
+                {# Este link leva para uma view de edição do Paciente, passando o PK do paciente e também o PK do atendimento atual para poder voltar. #}
+                <a href="{% url 'paciente_editar_clinico' pk=atendimento.paciente.pk atendimento_pk=atendimento.pk %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-edit"></i> Editar Informações Clínicas Base do Paciente {# Ícone do Font Awesome. #}
+                </a>
+            </div>
+            
+            {% comment %} Seção de Histórico Clínico e Dados Cadastrais (lado a lado) {% endcomment %}
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100"> {# 'h-100' para fazer os cards terem a mesma altura na linha. #}
+                        <div class="card-header">Histórico Clínico do Paciente</div>
+                        <div class="card-body">
+                            {# Mostra os campos do modelo Paciente que guardam o histórico. Uso o filtro 'default' caso o campo esteja vazio. #}
+                            <p><strong>Queixa Principal Registrada:</strong><br>{{ paciente.queixa_principal|default:"Não informado" }}</p>
+                            <p><strong>Quando a doença começou (Registro):</strong><br>{{ paciente.inicio_doenca|default:"Não informado" }}</p>
+                            <p><strong>Localização da Dor (Registro):</strong><br>{{ paciente.localizacao_dor|default:"Não informado" }}</p>
+                            <p><strong>Características da Dor (Registro):</strong><br>{{ paciente.caracteristicas_dor|default:"Não informado" }}</p>
+                            <p><strong>Evolução do quadro (Registro):</strong><br>{{ paciente.evolucao_quadro|default:"Não informado" }}</p>
+                            <p><strong>Alergias (Registro):</strong><br>{{ paciente.alergias|default:"Não informado" }}</p>
+                            <p><strong>Doenças Pré-existentes (Registro):</strong><br>{{ paciente.doencas_pre_existentes|default:"Não informado" }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">Dados Cadastrais do Paciente</div>
+                        <div class="card-body">
+                            <p><strong>Nome Completo:</strong> {{ paciente.nome_completo }}</p>
+                            <p><strong>Data de Nascimento:</strong> {{ paciente.data_nascimento|date:"d/m/Y" }}</p> {# Filtro 'date' para formatar. #}
+                            <p><strong>Idade:</strong> {{ paciente.idade|default:"Não informada" }}</p>
+                            <p><strong>Nome da Mãe:</strong> {{ paciente.nome_mae }}</p>
+                            <p><strong>Carteira do SUS:</strong> {{ paciente.carteira_sus }}</p>
+                            <p><strong>Plano de Saúde:</strong> {{ paciente.plano_saude|default:"Não informado" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% comment %} Formulário para Notas da Consulta e Pedido de Exames {% endcomment %}
+            {# Este formulário faz um POST para a mesma URL (atendimento_detalhe), que é tratada pelo método post da DetailView. #}
+            <form method="post" action="{% url 'atendimento_detalhe' pk=atendimento.pk %}">
+                {% csrf_token %} {# Proteção CSRF. #}
+
+                <div class="card mb-4">
+                    <div class="card-header">Notas da Consulta Atual</div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="evolucao_consulta" class="form-label fw-bold">Evolução/Observações da Consulta:</label>
+                            {# Textarea para o médico escrever a evolução. O valor é preenchido com 'evolucao_consulta_salva' se já houver algo salvo. #}
+                            <textarea class="form-control" id="evolucao_consulta" name="evolucao_consulta" rows="5" 
+                                      placeholder="Descreva a evolução do paciente nesta consulta, queixas atuais, exame físico, etc.">{{ evolucao_consulta_salva }}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="conduta_adotada" class="form-label fw-bold">Conduta Adotada/Plano:</label>
+                             {# Textarea para a conduta. Preenchida com 'conduta_adotada_salva'. #}
+                            <textarea class="form-control" id="conduta_adotada" name="conduta_adotada" rows="5"
+                                      placeholder="Descreva a conduta médica, orientações, prescrições resumidas, próximos passos, etc.">{{ conduta_adotada_salva }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">Pedir Exames para este Atendimento</div>
+                    <div class="card-body">
+                        <div class="row"> {# Layout em linha para os checkboxes dos exames. #}
+                            {% for exame_nome in exames_disponiveis %} {# Loop na lista de nomes de exames passada pela view. #}
+                                <div class="col-md-4 mb-2"> {# Cada exame em uma coluna (3 por linha em telas médias). #}
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" 
+                                               value="{{ exame_nome }}" id="exame_{{ forloop.counter0 }}"
+                                               name="exames_selecionados"
+                                               {% if exame_nome in selecionados_checkbox_salvos %}checked{% endif %}>
+                                        {#
+                                          - 'value' é o nome do exame.
+                                          - 'id' é único para o label funcionar (exame_0, exame_1, ...).
+                                          - 'name' é 'exames_selecionados' para todos, para que a view receba uma lista.
+                                          - 'checked' se o exame estiver na lista 'selecionados_checkbox_salvos'.
+                                        #}
+                                        <label class="form-check-label" for="exame_{{ forloop.counter0 }}">
+                                            {{ exame_nome }}
+                                        </label>
+                                    </div>
+                                </div>
+                            {% empty %}
+                                <p>Nenhum exame disponível para seleção.</p>
+                            {% endfor %}
+                        </div>
+                        <div class="row mt-3"> {# Campo para digitar "outro" exame não listado. #}
+                            <div class="col-md-12">
+                                <label for="exame_outro_texto" class="form-label fw-bold">Outro Exame:</label>
+                                <input type="text" class="form-control" 
+                                       id="exame_outro_texto" name="exame_outro_texto" 
+                                       placeholder="Digite o nome do exame não listado"
+                                       value="{{ outro_digitado_salvo }}"> {# Preenchido com o valor salvo. #}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end mb-3"> {# Botão para salvar as notas e exames. Alinhado à direita. #}
+                    <button type="submit" class="btn btn-primary">Salvar Notas e Exames</button>
+                </div>
+
+            </form> {# Fim do formulário de notas/exames. #}
+
+            {% comment %} Botão para Finalizar o Atendimento - só aparece se o status permitir. {% endcomment %}
+            {% if atendimento.status == 'EM_ATENDIMENTO' or atendimento.status == 'AGUARDANDO'%}
+            <div class="text-end"> 
+                {# Este é um formulário separado que faz POST para a URL 'finalizar_atendimento'. #}
+                <form action="{% url 'finalizar_atendimento' atendimento.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger">Finalizar Atendimento</button>
+                </form>
+            </div>
+            {% endif %}
+
+        </div> {# Fim col-md-9 #}
+    </div> {# Fim row #}
+</div> {# Fim container #}
+{% endblock %}

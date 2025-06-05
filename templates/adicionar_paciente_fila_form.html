@@ -1,0 +1,68 @@
+{% comment %}
+Arquivo: AlgumLugar/templates/core/adicionar_paciente_fila_form.html (ou como você nomeou)
+Este template mostra um formulário para adicionar um paciente já existente à fila de atendimento.
+A view Django associada (provavelmente AdicionarPacienteFilaView) passa o objeto 'paciente_para_adicionar'
+e o 'form' para este template.
+{% endcomment %}
+
+{% extends "base.html" %} {# A base do nosso site, onde ficam o cabeçalho, rodapé, e CSS/JS globais. #}
+{% load widget_tweaks %} {# Carrego a biblioteca django-widget-tweaks para poder adicionar classes CSS e outros atributos HTML aos campos do formulário de forma mais fácil no template. #}
+
+{% comment %}
+O título da página vai mostrar o nome do paciente, que é passado pela view no contexto.
+Ex: "Adicionar João da Silva à Fila"
+{% endcomment %}
+{% block title %}Adicionar {{ paciente_para_adicionar.nome_completo }} à Fila{% endblock %}
+
+{% block content %} {# Bloco principal onde o conteúdo desta página específica vai entrar. #}
+<div class="container mt-5"> {# Um container do Bootstrap para alinhar o conteúdo e dar uma margem no topo (mt-5). #}
+    <div class="row justify-content-center"> {# Linha do Bootstrap para centralizar o conteúdo que vem dentro dela. #}
+        <div class="col-md-8"> {# Define que em telas médias (md) ou maiores, a coluna ocupará 8 das 12 grades do Bootstrap. Isso limita a largura do formulário. #}
+            <div class="card"> {# Componente "card" do Bootstrap para agrupar o conteúdo do formulário de forma visualmente organizada. #}
+                <div class="card-header"> {# Cabeçalho do card. #}
+                    <h3>Adicionar Paciente à Fila</h3> {# Título principal do formulário. #}
+                </div>
+                <div class="card-body"> {# Corpo do card, onde o formulário em si e outras informações ficam. #}
+                    {# Mostra para o atendente qual paciente ele está adicionando, para evitar confusão. #}
+                    <p class="lead">Adicionando paciente: <strong>{{ paciente_para_adicionar.nome_completo }}</strong></p>
+                    <hr> {# Uma linha horizontal para separar visualmente o nome do paciente do formulário. #}
+                    
+                    <form method="post"> {# O formulário HTML. 'method="post"' é importante para enviar os dados. #}
+                        {% csrf_token %} {# Tag de segurança essencial do Django para proteger contra ataques CSRF. #}
+
+                        {% comment %}
+                        Aqui eu faço um loop em cada campo ('field') do formulário ('form') que foi passado pela view.
+                        Isso permite que eu renderize o formulário dinamicamente. Se eu adicionar ou remover campos no forms.py,
+                        o template se adapta sem precisar de muita alteração aqui.
+                        {% endcomment %}
+                        {% for field in form %}
+                            <div class="mb-3"> {# Div para agrupar o label, o input e as mensagens de erro/ajuda de cada campo. 'mb-3' adiciona uma margem inferior. #}
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}:</label> {# Renderiza o label do campo. 'field.id_for_label' pega o ID que o Django gera para o input, para o 'for' do label funcionar corretamente. 'form-label' é classe do Bootstrap. #}
+                                
+                                {% comment %}
+                                Condicional para estilizar o campo 'medico_destino' (que é um select) de forma diferente dos outros campos.
+                                Uso o {% render_field %} do widget_tweaks para adicionar classes Bootstrap.
+                                {% endcomment %}
+                                {% if field.name == 'medico_destino' %}
+                                    {# Para campos <select>, o Bootstrap recomenda a classe 'form-select'. #}
+                                    {% render_field field class+="form-select" %} 
+                                {% else %}
+                                    {# Para outros tipos de input (text, textarea, etc.), uso 'form-control'. #}
+                                    {% render_field field class+="form-control" %}
+                                {% endif %}
+                                
+                                {% comment %} Se o campo tiver erros de validação, eles são mostrados aqui. {% endcomment %}
+                                {% if field.errors %}
+                                    <div class="alert alert-danger mt-1 p-1"> {# Um pequeno alerta Bootstrap para os erros. 'mt-1' e 'p-1' para deixá-lo compacto. #}
+                                        {{ field.errors|striptags }} {# Mostra os erros. O filtro 'striptags' remove qualquer HTML que possa vir nos erros do Django, mostrando só o texto. #}
+                                    </div>
+                                {% endif %}
+                                
+                                {% comment %} Se o campo tiver um texto de ajuda (help_text definido no Form ou Model), ele é mostrado aqui. {% endcomment %}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text|safe }}</small> {# 'form-text text-muted' são classes Bootstrap para estilizar o texto de ajuda. O filtro 'safe' é usado se o help_text contiver HTML que eu quero renderizar (cuidado ao usar se o conteúdo não for confiável). #}
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+
+                        {# Container para os botões de ação do formulário. #}
